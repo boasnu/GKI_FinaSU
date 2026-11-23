@@ -1,36 +1,7 @@
-# Claude Code
-.claude/
-
-# Gemini
-.gemini/
-
-# IDE & Editors
-.idea/
-.vscode/
-.vs/
-*.swp
-*.swo
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-desktop.ini
-
-# Temporary files
-*.tmp
-*.bak
-*.orig
-*.rej
-*.temp
+work/
+out/
+release/
 *.log
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
+*.tar.gz
+*.zip
+.DS_Store
