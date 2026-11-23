@@ -1,0 +1,88 @@
+name: REDMI K90 (annibale) GKI 6.6 + FinaSU
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_tag:
+        description: 'AOSP kernel/common tag，与 adb shell uname -r 的 6.6.x 对齐'
+        required: true
+        default: 'android15-6.6.118_r00'
+      manifest_branch:
+        description: 'kernel/manifest 分支（决定 hermetic Clang 工具链）'
+        required: true
+        default: 'common-android15-6.6'
+      finasu_ref:
+        description: 'FinaSU 分支 / tag（上游改名时改成 master 对应新值）'
+        required: true
+        default: 'master'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: 检出工程
+        uses: actions/checkout@v4
+
+      - name: 释放磁盘空间
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: 10GB swap（LTO 链接阶段防 OOM）
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      - name: 安装编译依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            bc bison flex libssl-dev libelf-dev dwarves cpio \
+            lz4 zstd gzip make python3 jq zip unzip curl wget git \
+            libxml2-utils xsltproc file binutils-aarch64-linux-gnu
+          if ! command -v repo >/dev/null 2>&1; then
+            mkdir -p "$HOME/bin"
+            curl -sSL https://storage.googleapis.com/git-repo-downloads/repo -o "$HOME/bin/repo"
+            chmod +x "$HOME/bin/repo"
+            echo "$HOME/bin" >> "$GITHUB_PATH"
+          fi
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          df -h /
+
+      - name: 编译 GKI 内核（集成 FinaSU Built-In）
+        env:
+          KERNEL_TAG: ${{ inputs.kernel_tag }}
+          MANIFEST_BRANCH: ${{ inputs.manifest_branch }}
+          FINASU_REF: ${{ inputs.finasu_ref }}
+        run: bash scripts/build.sh
+
+      - name: 打包 AnyKernel3 + 管理器
+        run: bash scripts/make-ak3.sh
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: K90-FinaSU-${{ inputs.kernel_tag }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 失败时上传日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build.log
+            repo-sync.log
+          if-no-files-found: ignore
